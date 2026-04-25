@@ -1,0 +1,176 @@
+/* ============================================================
+   src/index.css — Global Design System
+   AI Image Detector
+   ============================================================ */
+
+@import "tailwindcss";
+
+/* ── Google Fonts ──────────────────────────────────────────── */
+/* Loaded via index.html <link> for best LCP performance */
+
+/* ── Design Tokens ─────────────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --bg-primary:      #080a0f;
+  --bg-surface:      #0d1017;
+  --bg-card:         #111520;
+  --bg-card-hover:   #161c2a;
+
+  /* Borders */
+  --border-subtle:   rgba(255, 255, 255, 0.06);
+  --border-muted:    rgba(255, 255, 255, 0.10);
+  --border-active:   rgba(0, 229, 255, 0.35);
+
+  /* Accent */
+  --accent-cyan:     #00e5ff;
+  --accent-cyan-dim: rgba(0, 229, 255, 0.10);
+  --accent-cyan-mid: rgba(0, 229, 255, 0.20);
+
+  /* Score Colors */
+  --score-safe:      #30d158;
+  --score-warn:      #ffd60a;
+  --score-alert:     #ff9500;
+  --score-danger:    #ff3b5c;
+
+  /* Text */
+  --text-primary:    #eef2f7;
+  --text-secondary:  #6b7a99;
+  --text-tertiary:   #404963;
+
+  /* Typography */
+  --font-display:    'Syne', sans-serif;
+  --font-body:       'DM Sans', sans-serif;
+  --font-mono:       'JetBrains Mono', monospace;
+
+  /* Spacing / Radius */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  /* Shadows */
+  --shadow-card:   0 2px 16px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border-subtle);
+  --shadow-raised: 0 8px 40px rgba(0, 0, 0, 0.6);
+  --glow-cyan:     0 0 24px rgba(0, 229, 255, 0.20), 0 0 48px rgba(0, 229, 255, 0.08);
+  --glow-safe:     0 0 20px rgba(48, 209, 88, 0.25);
+  --glow-danger:   0 0 20px rgba(255, 59, 92, 0.25);
+}
+
+/* ── Reset ─────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Base ───────────────────────────────────────────────────── */
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  line-height: 1.6;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* ── Subtle noise texture overlay ──────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  opacity: 0.025;
+  pointer-events: none;
+  z-index: 0;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Typography Utilities ───────────────────────────────────── */
+.font-display { font-family: var(--font-display); }
+.font-mono    { font-family: var(--font-mono); }
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+
+/* ── Focus ring (accessibility) ─────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* ── Scanline keyframe ──────────────────────────────────────── */
+@keyframes scanline {
+  0%   { top: 0%; }
+  100% { top: 100%; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Card base ──────────────────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.card:hover {
+  border-color: var(--border-muted);
+  background: var(--bg-card-hover);
+  transition: background 200ms ease, border-color 200ms ease;
+}
+
+/* ── Spinner ────────────────────────────────────────────────── */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-muted);
+  border-top-color: var(--accent-cyan);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ── Status dot ─────────────────────────────────────────────── */
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.ready   { background: var(--score-safe); box-shadow: 0 0 6px var(--score-safe); }
+.status-dot.loading { background: var(--score-warn); animation: pulse-glow 1.2s ease-in-out infinite; }
+.status-dot.error   { background: var(--score-danger); }

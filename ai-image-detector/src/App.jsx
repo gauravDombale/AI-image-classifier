@@ -10,14 +10,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { loadMobileNet }   from './ml/mobilenetFeatures.js';
 import { runDetection }    from './ml/detector.js';
 import { preprocessImage, InvalidFileError } from './utils/imageUtils.js';
-import { SIGNAL_META, getScoreColor }        from './utils/constants.js';
+import { getScoreColor } from './utils/constants.js';
 
 import Header        from './components/Header.jsx';
 import DropZone      from './components/DropZone.jsx';
 import LoadingState  from './components/LoadingState.jsx';
 import ScoreGauge    from './components/ScoreGauge.jsx';
 import ResultBanner  from './components/ResultBanner.jsx';
-import DimensionCard from './components/DimensionCard.jsx';
 
 const PHASES = {
   IDLE:           'idle',
@@ -196,20 +195,13 @@ export default function App() {
                   margin:     '0 auto',
                   lineHeight: 1.7,
                 }}>
-                  8-signal forensic analysis — 7 signals run locally in your browser.
-                  {import.meta.env.VITE_HF_API_KEY ? (
-                    <span> The optional <strong style={{ color: 'var(--accent-cyan)' }}>AI Model Scan</strong> uploads your image to Hugging Face for deep analysis.</span>
-                  ) : (
-                    <span> All signals run privately on your device. No uploads. No cost.</span>
-                  )}
+                   Drop any image — we'll tell you if it's AI-generated or real.
                 </p>
               </div>
 
               <DropZone onFile={handleFile} disabled={!modelReady} />
-
-              {/* Feature pills */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', marginTop: '28px' }}>
-                {['🔒 7 Local Signals', '⚡ GPU-accelerated', '🧠 8-Signal Ensemble', '📷 HEIC · TIFF · BMP', '🆓 Always Free'].map(pill => (
+                {['⚡ Instant Results', '🎯 High Accuracy', '📷 HEIC · TIFF · BMP · PNG · JPG', '🔒 Secure'].map(pill => (
                   <span key={pill} style={{
                     fontFamily:    'var(--font-mono)',
                     fontSize:      '11px',
@@ -252,102 +244,41 @@ export default function App() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
             >
-              {/* Preprocessing warnings */}
-              {result.warnings?.length > 0 && (
-                <div style={{
-                  padding: '10px 14px',
-                  background: 'rgba(255, 190, 0, 0.07)',
-                  border: '1px solid rgba(255, 190, 0, 0.25)',
-                  borderRadius: 'var(--radius-md)',
-                  marginBottom: '16px',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '11px',
-                  color: 'var(--score-warn)',
-                }}>
-                  ℹ {result.warnings.join(' · ')}
-                </div>
-              )}
-
-              {/* Unavailable signals warning */}
-              {result.unavailableSignals?.length > 0 && (
-                <div style={{
-                  padding: '10px 14px',
-                  background: 'rgba(107, 122, 153, 0.08)',
-                  border: '1px solid rgba(107, 122, 153, 0.2)',
-                  borderRadius: 'var(--radius-md)',
-                  marginBottom: '16px',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '11px',
-                  color: 'var(--text-secondary)',
-                }}>
-                  ⚠ Skipped signals: {result.unavailableSignals.join(', ')} — result confidence reduced
-                </div>
-              )}
-
-              {/* Top panel */}
+              {/* Clean result card */}
               <div style={{
-                display:       'flex',
-                gap:           '24px',
-                alignItems:    'flex-start',
-                flexWrap:      'wrap',
-                marginBottom:  '32px',
+                display:        'flex',
+                flexDirection:  'column',
+                alignItems:     'center',
+                gap:            '28px',
+                padding:        '40px 24px',
+                background:     'var(--bg-card)',
+                border:         `1px solid ${scoreColor}33`,
+                borderRadius:   'var(--radius-lg)',
+                boxShadow:      `0 0 40px ${scoreColor}18`,
               }}>
+
                 {/* Image preview */}
                 {imageURL && (
-                  <div style={{ flexShrink: 0 }}>
-                    <img
-                      src={imageURL}
-                      alt="Analyzed"
-                      style={{
-                        width:        '160px',
-                        height:       '160px',
-                        objectFit:    'cover',
-                        borderRadius: 'var(--radius-md)',
-                        border:       '1px solid var(--border-subtle)',
-                      }}
-                    />
-                  </div>
+                  <img
+                    src={imageURL}
+                    alt="Analyzed"
+                    style={{
+                      width:        '180px',
+                      height:       '180px',
+                      objectFit:    'cover',
+                      borderRadius: 'var(--radius-md)',
+                      border:       `2px solid ${scoreColor}55`,
+                    }}
+                  />
                 )}
 
-                {/* Score gauge + verdict */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px', minWidth: '220px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <ScoreGauge score={result.finalScore} color={scoreColor} />
-                  </div>
-                  <ResultBanner verdict={result.verdict} generatorLabel={result.generatorLabel} deepfakeScore={result.deepfakeScore} />
-                </div>
-              </div>
+                {/* Score gauge */}
+                <ScoreGauge score={result.finalScore} color={scoreColor} />
 
-              {/* Signal grid */}
-              <div style={{ marginBottom: '16px' }}>
-                <h2 style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '11px',
-                  color: 'var(--text-secondary)',
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  marginBottom: '16px',
-                }}>
-                  Signal Breakdown
-                </h2>
-                <div style={{
-                  display:               'grid',
-                  gridTemplateColumns:   'repeat(auto-fill, minmax(240px, 1fr))',
-                  gap:                   '12px',
-                }}>
-                  {SIGNAL_META.map((sig, i) => (
-                    <DimensionCard
-                      key={sig.key}
-                      signal={sig}
-                      result={result.signals[sig.key]}
-                      index={i}
-                    />
-                  ))}
-                </div>
-              </div>
+                {/* Verdict banner */}
+                <ResultBanner verdict={result.verdict} deepfakeScore={result.deepfakeScore} />
 
-              {/* Analyze another */}
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '32px' }}>
+                {/* Analyze another */}
                 <button
                   id="analyze-another-btn"
                   onClick={handleReset}
@@ -363,6 +294,7 @@ export default function App() {
                     cursor:        'pointer',
                     letterSpacing: '0.04em',
                     transition:    'background 200ms ease, box-shadow 200ms ease',
+                    marginTop:     '4px',
                   }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-cyan-mid)'; e.currentTarget.style.boxShadow = 'var(--glow-cyan)'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent-cyan-dim)'; e.currentTarget.style.boxShadow = 'none'; }}

@@ -38,6 +38,16 @@ export async function sightengineDetect(file) {
     };
   }
 
+  if (!file || file.size === 0) {
+    return {
+      score:         50,
+      confidence:    0,
+      label:         'Sightengine Scan',
+      detail:        'Skipped: selected image file is empty',
+      deepfakeScore: 0,
+    };
+  }
+
   try {
     const formData = new FormData();
     formData.append('image', file, file.name || 'upload');

@@ -16,6 +16,11 @@ export default function DropZone({ onFile, disabled }) {
   const handleFile = useCallback(async (file) => {
     if (!file) return;
 
+    if (file.size === 0) {
+      setError('This image file is empty. Select the original image file, not a copied curl request body.');
+      return;
+    }
+
     // Content-based type detection (handles misnamed/wrongly-typed files)
     const detected  = await detectFileType(file);
     const mimeToCheck = detected.mimeType !== 'unknown' ? detected.mimeType : file.type;

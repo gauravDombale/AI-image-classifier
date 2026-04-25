@@ -49,6 +49,10 @@ function canvasToTensor(canvas) {
 export async function preprocessImage(file) {
   const warnings = [];
 
+  if (!file || file.size === 0) {
+    throw new InvalidFileError('The selected image file is empty. Please choose the original image file again.');
+  }
+
   // ── 1. Detect real file type ──────────────────────────────
   const fileTypeInfo = await detectFileType(file);
   const effectiveMime = fileTypeInfo.mimeType !== 'unknown' ? fileTypeInfo.mimeType : file.type;

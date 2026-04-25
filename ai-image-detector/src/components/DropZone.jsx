@@ -1,44 +1,46 @@
 /* ──────────────────────────────────────────
    src/components/DropZone.jsx
    Image upload — drag/drop/click/paste
+   Uses central imageFormats.js — no duplicated MIME lists
    ────────────────────────────────────────── */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+import { isAcceptedFile, INPUT_ACCEPT } from '../utils/imageFormats.js';
+import { detectFileType } from '../utils/fileType.js';
 
 export default function DropZone({ onFile, disabled }) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError]           = useState(null);
   const inputRef = useRef(null);
 
-  // ── Validate and pass file up ─────────────────────────────────
-  const handleFile = useCallback((file) => {
+  const handleFile = useCallback(async (file) => {
     if (!file) return;
-    if (!ACCEPTED.includes(file.type)) {
-      setError(`Unsupported type: ${file.type || 'unknown'}. Use JPG, PNG, WebP, or GIF.`);
+
+    // Content-based type detection (handles misnamed/wrongly-typed files)
+    const detected  = await detectFileType(file);
+    const mimeToCheck = detected.mimeType !== 'unknown' ? detected.mimeType : file.type;
+    const { accepted } = isAcceptedFile({ type: mimeToCheck, name: file.name });
+
+    if (!accepted) {
+      setError(`Unsupported: ${mimeToCheck || 'unknown type'}. Supported: JPG, PNG, WebP, GIF, AVIF, HEIC, TIFF, BMP, SVG.`);
       return;
     }
     setError(null);
     onFile(file);
   }, [onFile]);
 
-  // ── Drag events ───────────────────────────────────────────────
   const onDragOver  = (e) => { e.preventDefault(); if (!disabled) setIsDragging(true); };
   const onDragLeave = ()  => setIsDragging(false);
   const onDrop      = (e) => {
     e.preventDefault();
     setIsDragging(false);
     if (disabled) return;
-    const file = e.dataTransfer.files?.[0];
-    handleFile(file);
+    handleFile(e.dataTransfer.files?.[0]);
   };
 
-  // ── Click ─────────────────────────────────────────────────────
   const onClick = () => { if (!disabled) inputRef.current?.click(); };
   const onInputChange = (e) => handleFile(e.target.files?.[0]);
 
-  // ── Paste from clipboard ──────────────────────────────────────
   useEffect(() => {
     const onPaste = (e) => {
       if (disabled) return;
@@ -63,7 +65,6 @@ export default function DropZone({ onFile, disabled }) {
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
-        title={disabled ? 'Wait for models to load' : undefined}
         style={{
           display:        'flex',
           flexDirection:  'column',
@@ -81,7 +82,6 @@ export default function DropZone({ onFile, disabled }) {
           userSelect:     'none',
         }}
       >
-        {/* Upload Icon */}
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
           stroke={isActive ? 'var(--accent-cyan)' : 'var(--text-secondary)'}
           strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
@@ -102,7 +102,7 @@ export default function DropZone({ onFile, disabled }) {
             {isActive ? 'Release to analyze' : 'Drop an image to analyze'}
           </p>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--text-secondary)', marginTop: '6px' }}>
-            or click to browse · supports JPG, PNG, WebP, GIF
+            JPG · PNG · WebP · GIF · HEIC · TIFF · BMP · SVG · AVIF
           </p>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
             Ctrl+V to paste from clipboard
@@ -112,14 +112,13 @@ export default function DropZone({ onFile, disabled }) {
         <input
           ref={inputRef}
           type="file"
-          accept={ACCEPTED.join(',')}
+          accept={INPUT_ACCEPT}
           style={{ display: 'none' }}
           onChange={onInputChange}
           aria-hidden="true"
         />
       </div>
 
-      {/* Error message */}
       {error && (
         <p style={{
           marginTop: '10px',

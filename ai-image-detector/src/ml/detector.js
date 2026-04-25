@@ -1,6 +1,6 @@
 /* ──────────────────────────────────────────
    src/ml/detector.js
-   Main orchestrator — runs all 7 signals in parallel
+   Main orchestrator — runs all 8 signals in parallel
    ────────────────────────────────────────── */
 
 import * as tf from '@tensorflow/tfjs';
@@ -10,13 +10,10 @@ import { colorStats         } from './colorStats.js';
 import { edgeAnalysis       } from './edgeAnalysis.js';
 import { textureAnalysis    } from './textureAnalysis.js';
 import { noiseAnalysis      } from './noiseAnalysis.js';
+import { metadataAnalysis   } from './metadataAnalysis.js';
 import { huggingFaceDetect  } from './huggingFaceSignal.js';
 import { computeFinalScore, getVerdict } from './scorer.js';
 
-/**
- * Wrap a signal function so it never throws.
- * On error → returns neutral { score: 50, confidence: 0 }
- */
 async function safeSignal(key, fn, onComplete) {
   try {
     const result = await fn();
@@ -37,18 +34,9 @@ async function safeSignal(key, fn, onComplete) {
   }
 }
 
-/**
- * Run all 7 detection signals in parallel.
- *
- * @param {object} preprocessed  Output from preprocessImage()
- * @param {File}   file          Original File for HF API
- * @param {function} onSignalComplete  (key: string) => void — called as each signal resolves
- * @returns {{ finalScore: number, verdict: object, signals: object }}
- */
 export async function runDetection(preprocessed, file, onSignalComplete) {
-  const { tensor224, tensor64, pixelData224, pixelData64, width, height } = preprocessed;
+  const { tensor224, tensor64, pixelData224, pixelData64, width, height, warnings = [] } = preprocessed;
 
-  // Run all signals in parallel — each is independently error-safe
   const results = await Promise.all([
     safeSignal('mobilenet',   () => mobilenetFeatures(tensor224),                   onSignalComplete),
     safeSignal('frequency',   () => frequencyAnalysis(pixelData224, width, height), onSignalComplete),
@@ -56,20 +44,26 @@ export async function runDetection(preprocessed, file, onSignalComplete) {
     safeSignal('edge',        () => edgeAnalysis(tensor224),                        onSignalComplete),
     safeSignal('texture',     () => textureAnalysis(pixelData64),                   onSignalComplete),
     safeSignal('noise',       () => noiseAnalysis(tensor64),                        onSignalComplete),
+    safeSignal('metadata',    () => metadataAnalysis(file),                         onSignalComplete),
     safeSignal('huggingface', () => huggingFaceDetect(file),                        onSignalComplete),
   ]);
 
-  // Dispose TF tensors — must happen after all signals complete
   tf.dispose([tensor224, tensor64]);
 
-  // Build signals map
   const signals = {};
   for (const { key, result } of results) {
     signals[key] = result;
   }
 
-  const finalScore = computeFinalScore(signals);
-  const verdict    = getVerdict(finalScore);
+  const { finalScore, confidence, unavailableSignals } = computeFinalScore(signals);
+  const verdict = getVerdict(finalScore, confidence);
 
-  return { finalScore, verdict, signals };
+  return {
+    finalScore,
+    confidence,
+    verdict,
+    signals,
+    warnings,
+    unavailableSignals,
+  };
 }

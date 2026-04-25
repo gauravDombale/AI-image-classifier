@@ -188,16 +188,20 @@ export default function App() {
                   Is this image{' '}
                   <span style={{ color: 'var(--accent-cyan)' }}>AI-generated?</span>
                 </h1>
-                <p style={{
+              <p style={{
                   fontFamily: 'var(--font-body)',
                   fontSize:   '15px',
                   color:      'var(--text-secondary)',
-                  maxWidth:   '480px',
+                  maxWidth:   '520px',
                   margin:     '0 auto',
                   lineHeight: 1.7,
                 }}>
-                  7-signal forensic analysis — all running privately in your browser.
-                  No uploads. No servers. No cost.
+                  8-signal forensic analysis — 7 signals run locally in your browser.
+                  {import.meta.env.VITE_HF_API_KEY ? (
+                    <span> The optional <strong style={{ color: 'var(--accent-cyan)' }}>AI Model Scan</strong> uploads your image to Hugging Face for deep analysis.</span>
+                  ) : (
+                    <span> All signals run privately on your device. No uploads. No cost.</span>
+                  )}
                 </p>
               </div>
 
@@ -205,7 +209,7 @@ export default function App() {
 
               {/* Feature pills */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', marginTop: '28px' }}>
-                {['🔒 100% Private', '⚡ GPU-accelerated', '🧠 7-Signal Ensemble', '🆓 Always Free'].map(pill => (
+                {['🔒 7 Local Signals', '⚡ GPU-accelerated', '🧠 8-Signal Ensemble', '📷 HEIC · TIFF · BMP', '🆓 Always Free'].map(pill => (
                   <span key={pill} style={{
                     fontFamily:    'var(--font-mono)',
                     fontSize:      '11px',
@@ -248,6 +252,38 @@ export default function App() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
             >
+              {/* Preprocessing warnings */}
+              {result.warnings?.length > 0 && (
+                <div style={{
+                  padding: '10px 14px',
+                  background: 'rgba(255, 190, 0, 0.07)',
+                  border: '1px solid rgba(255, 190, 0, 0.25)',
+                  borderRadius: 'var(--radius-md)',
+                  marginBottom: '16px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '11px',
+                  color: 'var(--score-warn)',
+                }}>
+                  ℹ {result.warnings.join(' · ')}
+                </div>
+              )}
+
+              {/* Unavailable signals warning */}
+              {result.unavailableSignals?.length > 0 && (
+                <div style={{
+                  padding: '10px 14px',
+                  background: 'rgba(107, 122, 153, 0.08)',
+                  border: '1px solid rgba(107, 122, 153, 0.2)',
+                  borderRadius: 'var(--radius-md)',
+                  marginBottom: '16px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '11px',
+                  color: 'var(--text-secondary)',
+                }}>
+                  ⚠ Skipped signals: {result.unavailableSignals.join(', ')} — result confidence reduced
+                </div>
+              )}
+
               {/* Top panel */}
               <div style={{
                 display:       'flex',

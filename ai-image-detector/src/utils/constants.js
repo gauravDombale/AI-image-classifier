@@ -8,13 +8,14 @@
  * HF signal weighted highest (fine-tuned model)
  */
 export const WEIGHTS = {
-  mobilenet:   0.10,
-  frequency:   0.10,
-  color:       0.08,
-  edge:        0.08,
-  texture:     0.07,
-  noise:       0.07,
-  huggingface: 0.50,  // Primary signal — only real fine-tuned model
+  mobilenet:   0.08,
+  frequency:   0.08,
+  color:       0.06,
+  edge:        0.06,
+  texture:     0.05,
+  noise:       0.05,
+  metadata:    0.12,  // EXIF/software tag analysis
+  huggingface: 0.50,  // Primary — fine-tuned model
 };
 
 /**
@@ -64,7 +65,7 @@ export const SIGNAL_META = [
     key: 'mobilenet',
     label: 'Embedding Anomaly',
     icon: '◈',
-    description: 'MobileNet v3 embedding analysis — AI images cluster in different regions of learned feature space.',
+    description: 'MobileNet v2 embedding analysis — AI images cluster in different regions of learned feature space.',
   },
   {
     key: 'frequency',
@@ -95,6 +96,12 @@ export const SIGNAL_META = [
     label: 'Noise Fingerprint',
     icon: '◇',
     description: 'Residual noise analysis — AI images lack the structured sensor noise (PRNU) of real cameras.',
+  },
+  {
+    key: 'metadata',
+    label: 'Metadata Signal',
+    icon: '◑',
+    description: 'EXIF metadata analysis — detects AI generator software tags and validates real camera fields.',
   },
   {
     key: 'huggingface',

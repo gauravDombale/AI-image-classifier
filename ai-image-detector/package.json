@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:worker": "bash deploy-worker.sh"
   },
   "dependencies": {
     "@sentry/react": "^10.50.0",

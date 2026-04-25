@@ -5,17 +5,20 @@
 
 /**
  * Signal weights — must sum to 1.0
- * HF signal weighted highest (fine-tuned model)
+ * Sightengine (professional commercial API) is primary at 38%
+ * HuggingFace is secondary API at 22%
+ * Local signals fill the rest
  */
 export const WEIGHTS = {
-  mobilenet:   0.08,
-  frequency:   0.08,
-  color:       0.06,
-  edge:        0.06,
-  texture:     0.05,
-  noise:       0.05,
-  metadata:    0.12,  // EXIF/software tag analysis
-  huggingface: 0.50,  // Primary — fine-tuned model
+  mobilenet:    0.07,
+  frequency:    0.07,
+  color:        0.05,
+  edge:         0.05,
+  texture:      0.04,
+  noise:        0.04,
+  metadata:     0.08,  // EXIF/software tag analysis
+  huggingface:  0.22,  // Secondary — fine-tuned HF model
+  sightengine:  0.38,  // Primary — Sightengine professional API (genai + deepfake)
 };
 
 /**
@@ -108,6 +111,12 @@ export const SIGNAL_META = [
     label: 'AI Model Scan',
     icon: '⬢',
     description: 'Fine-tuned deep learning model via Hugging Face — trained specifically to detect AI-generated images.',
+  },
+  {
+    key: 'sightengine',
+    label: 'Sightengine Scan',
+    icon: '⬛',
+    description: 'Professional AI & Deepfake detection API — commercial-grade genai + deepfake model ensemble.',
   },
 ];
 

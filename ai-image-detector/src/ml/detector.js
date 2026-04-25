@@ -1,11 +1,14 @@
 /* ──────────────────────────────────────────
    src/ml/detector.js
-   Main orchestrator — runs all 8 signals in parallel
-   Primary API: HuggingFace haywoodsloan/ai-image-detector-deploy
+   Main orchestrator — runs all 9 signals in parallel
+
+   Signal Priority (API signals):
+   1. Sightengine (38% weight) — professional commercial API, genai + deepfake
+   2. HuggingFace  (22% weight) — fine-tuned open model
    ────────────────────────────────────────── */
 
 import * as tf from '@tensorflow/tfjs';
-import { mobilenetFeatures } from './mobilenetFeatures.js';
+import { mobilenetFeatures  } from './mobilenetFeatures.js';
 import { frequencyAnalysis  } from './frequencyAnalysis.js';
 import { colorStats         } from './colorStats.js';
 import { edgeAnalysis       } from './edgeAnalysis.js';
@@ -13,6 +16,7 @@ import { textureAnalysis    } from './textureAnalysis.js';
 import { noiseAnalysis      } from './noiseAnalysis.js';
 import { metadataAnalysis   } from './metadataAnalysis.js';
 import { huggingFaceDetect  } from './huggingFaceSignal.js';
+import { sightengineDetect  } from './sightengineSignal.js';
 import { computeFinalScore, getVerdict } from './scorer.js';
 
 async function safeSignal(key, fn, onComplete) {
@@ -47,6 +51,7 @@ export async function runDetection(preprocessed, file, onSignalComplete) {
     safeSignal('noise',       () => noiseAnalysis(tensor64),                        onSignalComplete),
     safeSignal('metadata',    () => metadataAnalysis(file),                         onSignalComplete),
     safeSignal('huggingface', () => huggingFaceDetect(file),                        onSignalComplete),
+    safeSignal('sightengine', () => sightengineDetect(file),                        onSignalComplete),
   ]);
 
   tf.dispose([tensor224, tensor64]);
@@ -59,6 +64,9 @@ export async function runDetection(preprocessed, file, onSignalComplete) {
   const { finalScore, confidence, unavailableSignals } = computeFinalScore(signals);
   const verdict = getVerdict(finalScore, confidence);
 
+  // Surface deepfake score from Sightengine
+  const deepfakeScore = signals['sightengine']?.deepfakeScore ?? 0;
+
   return {
     finalScore,
     confidence,
@@ -68,6 +76,6 @@ export async function runDetection(preprocessed, file, onSignalComplete) {
     unavailableSignals,
     generator:      null,
     generatorLabel: null,
-    deepfakeScore:  0,
+    deepfakeScore,
   };
 }

@@ -70,7 +70,7 @@ export default function App() {
               setModelReady(true);
               setPhase(PHASES.IDLE);
             }
-          } catch (cpuErr) {
+          } catch {
             if (!cancelled) {
               setError('Failed to initialize ML models. Please refresh the page.');
               setPhase(PHASES.ERROR);

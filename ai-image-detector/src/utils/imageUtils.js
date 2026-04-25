@@ -16,7 +16,6 @@ export class InvalidFileError extends Error {
 }
 
 const MODEL_SIZE    = 224;  // MobileNet input size
-const ANALYSIS_SIZE = 256;  // Larger for forensic signals (then cropped to 224)
 const SMALL_SIZE    = 64;   // Texture + noise signals
 
 // ── Draw with aspect-ratio center-crop ───────────────────────

@@ -29,9 +29,10 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 0
 fi
 
-# Parse SE_API_USER and SE_API_SECRET from .env
+# Parse SE_API_USER, SE_API_SECRET, and optional SE_MODELS from .env
 SE_API_USER=$(grep "^SE_API_USER=" "$ENV_FILE" | cut -d '=' -f2 | tr -d '"' | tr -d "'")
 SE_API_SECRET=$(grep "^SE_API_SECRET=" "$ENV_FILE" | cut -d '=' -f2 | tr -d '"' | tr -d "'")
+SE_MODELS=$(grep "^SE_MODELS=" "$ENV_FILE" | cut -d '=' -f2 | tr -d '"' | tr -d "'")
 
 # ── 3. Set secrets ────────────────────────────────────
 if [ -n "$SE_API_USER" ]; then
@@ -46,6 +47,13 @@ if [ -n "$SE_API_SECRET" ]; then
   echo "✅ SE_API_SECRET secret set."
 else
   echo "⚠️  SE_API_SECRET not found in .env — skipping."
+fi
+
+if [ -n "$SE_MODELS" ]; then
+  echo "$SE_MODELS" | npx wrangler secret put SE_MODELS --name "$WORKER_NAME"
+  echo "✅ SE_MODELS secret set."
+else
+  echo "ℹ️  SE_MODELS not found in .env — defaulting worker to genai."
 fi
 
 echo ""

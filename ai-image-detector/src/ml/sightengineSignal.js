@@ -40,7 +40,7 @@ export async function sightengineDetect(file) {
 
   try {
     const formData = new FormData();
-    formData.append('image', file); // CF Worker reads this as 'image'
+    formData.append('image', file, file.name || 'upload');
 
     const res = await fetchWithTimeout(
       SE_PROXY_URL,
@@ -50,10 +50,17 @@ export async function sightengineDetect(file) {
 
     if (!res.ok) {
       const errText = await res.text().catch(() => '');
+      let detail = errText.slice(0, 120);
+      try {
+        const parsed = JSON.parse(errText);
+        detail = parsed.error || parsed.detail || parsed.sightengine?.error?.message || detail;
+      } catch {
+        // Keep raw text preview.
+      }
       return {
         score: 50, confidence: 0,
         label: 'Sightengine Scan',
-        detail: `Sightengine error ${res.status}: ${errText.slice(0, 80)}`,
+        detail: `Sightengine error ${res.status}: ${detail}`,
         deepfakeScore: 0,
       };
     }
@@ -73,8 +80,14 @@ export async function sightengineDetect(file) {
     const deepfakeRaw  = data.type.deepfake       ?? 0;
     const score        = Math.round(aiGenerated * 100);
     const deepfakeScore = Math.round(deepfakeRaw * 100);
+    const generators = data.type.ai_generators ?? {};
+    const topGenerator = Object.entries(generators)
+      .sort((a, b) => b[1] - a[1])[0];
 
     let detail = `Sightengine: ${score}% AI-generated`;
+    if (topGenerator && topGenerator[1] >= 0.2) {
+      detail += ` · ${topGenerator[0]} ${(topGenerator[1] * 100).toFixed(0)}%`;
+    }
     if (deepfakeScore >= 30) {
       detail += ` · Deepfake: ${deepfakeScore}%`;
     }

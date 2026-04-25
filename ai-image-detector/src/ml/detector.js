@@ -44,31 +44,33 @@ async function safeSignal(key, fn, onComplete) {
 
 /**
  * Select the best available API signal.
- * Hive V3 (94% acc) > HuggingFace > neutral fallback
+ * HuggingFace is the primary (works with free tier key).
+ * Hive is attempted if CF Worker is configured — but silently falls back to HF
+ * if Hive returns an error (enterprise-only endpoint returns 404).
  */
 async function runPrimaryApiSignal(file) {
-  const hiveKey = import.meta.env.VITE_HIVE_API_KEY;
-  const hfKey   = import.meta.env.VITE_HF_API_KEY;
+  const cfWorkerUrl = import.meta.env.VITE_CF_WORKER_URL;
+  const hfKey       = import.meta.env.VITE_HF_API_KEY;
 
-  // Prefer Hive V3 if key is configured
-  if (hiveKey && hiveKey !== 'your_v3_api_key_here') {
-    return hiveDetect(file);
+  // Try Hive via CF Worker proxy if configured
+  if (cfWorkerUrl) {
+    const hiveResult = await hiveDetect(file);
+    // Only use Hive result if it has real confidence (not a fallback neutral 50)
+    if (hiveResult.confidence > 0) {
+      return hiveResult;
+    }
   }
 
-  // Fall back to Hugging Face
+  // Fall back to HuggingFace (always active when key is set)
   if (hfKey && hfKey !== 'hf_xxxxxxxxxxxxxxxxxxxxx') {
     const hfResult = await huggingFaceDetect(file);
     return { ...hfResult, generator: null, generatorLabel: null };
   }
 
-  // No API key — return neutral
   return {
-    score:          50,
-    confidence:     0,
-    label:          'AI Model Scan',
-    detail:         'No API key configured — add VITE_HIVE_API_KEY for 94% accuracy',
-    generator:      null,
-    generatorLabel: null,
+    score: 50, confidence: 0, label: 'AI Model Scan',
+    detail: 'No API key configured — add VITE_HF_API_KEY for best accuracy',
+    generator: null, generatorLabel: null,
   };
 }
 

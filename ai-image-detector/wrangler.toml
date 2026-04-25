@@ -1,0 +1,4 @@
+name = "aigc-detect-fallback"
+main = "cloudflare-worker.js"
+compatibility_date = "2024-01-01"
+account_id = "f5aea6a97b3e5835cca62208e3c89420"

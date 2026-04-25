@@ -1,260 +1,411 @@
-# Plan.md — AI Image Detector: Production Architecture
+# Hive V3 AI Image Detector — Implementation Guide
 
-> Goal: Support 1000+ daily users at 9.2/10 quality. Everything free.
+## Overview
 
----
+Use Hive's AI-Generated Image & Video Detection API (V3) to classify whether an image was created by an AI engine (DALL-E, Midjourney, Stable Diffusion, Flux, etc.) or is a deepfake. The model returns confidence scores and identifies the likely source generator.
 
-## 📌 Project Summary
-
-A fully client-side AI Image Authenticity Detector.
-- Detects if an image is AI-generated using a 7-signal ensemble
-- All ML inference runs in-browser via TensorFlow.js
-- Fallback to Cloudflare Workers AI if WebGL is unavailable
-- No backend server costs, no paid APIs
+- **Accuracy:** 94% (independent 2026 benchmarking)
+- **Free tier:** 100 requests/day (V3 self-serve, no sales call needed)
+- **Latency:** ~500ms for thumbnail images
+- **Supported formats:** jpg, png, gif, webp (images) | mp4, webm, avi, mkv, wmv, mov (video)
 
 ---
 
-## 🏗️ Final Architecture
+## Step 1: Get Your API Key
+
+1. Sign up at [https://portal.thehive.ai/signup](https://portal.thehive.ai/signup)
+2. Go to **API Keys** in the left sidebar of the Hive UI
+3. Create a new **V3 API Key**
+4. Store it securely — treat it like a password
 
 ```
-User visits site
-      │
-      ▼
-[Vercel CDN] — Global edge, instant load, free SSL
-      │
-      ▼
-[Service Worker (Workbox)]
-  → MobileNet cached? → Load instantly (0ms network)
-  → Not cached?       → Download once → cache forever
-      │
-      ▼
-User uploads image (drag/drop / click / paste)
-      │
-      ├─── WebGL available? ──────────────────────────────┐
-      │         ✅ YES                                     ❌ NO
-      │    Run 6 signals in-browser                 Cloudflare Workers AI
-      │    (TF.js + WebGL GPU)                      (10k req/day free)
-      │
-      ├─── Hugging Face Inference API (7th signal, free)
-      │    Model: umm-maybe/AI-image-detector
-      │    Used as confidence booster
-      │
-      ▼
-Weighted Ensemble Scorer (scorer.js)
-      │
-      ▼
-Results rendered (Framer Motion animations)
-      │
-      ├── Sentry logs any JS errors (5k/month free)
-      └── Vercel Analytics tracks usage (free)
+HIVE_API_KEY=your_v3_api_key_here
+```
 
-Cloudflare sits in front of everything:
-  → DDoS protection
-  → Rate limiting
-  → Bot blocking
-  → CDN caching of static assets
+> ⚠️ V3 is the self-serve instant-on API. Do NOT use V2 endpoints — those require an enterprise contract.
+
+---
+
+## Step 2: API Endpoint
+
+```
+POST https://api.thehive.ai/api/v3/ai-generated-image-detection
+```
+
+### Headers
+
+```
+Authorization: Token <YOUR_HIVE_API_KEY>
+Content-Type: multipart/form-data   # when uploading a file
+Content-Type: application/json      # when passing a URL
 ```
 
 ---
 
-## 🧰 Tech Stack (All Free)
+## Step 3: Request Formats
 
-### Core
-| Layer        | Technology         | Why                                      |
-|--------------|--------------------|------------------------------------------|
-| Framework    | React + Vite       | Fast builds, modern tooling              |
-| Hosting      | Vercel Hobby       | Free CDN, auto-deploy from GitHub        |
-| DNS + Shield | Cloudflare Free    | DDoS, rate limiting, global CDN          |
-
-### Machine Learning
-| Layer               | Technology                    | Why                                    |
-|---------------------|-------------------------------|----------------------------------------|
-| ML Runtime          | TensorFlow.js (`@tensorflow/tfjs`) | In-browser GPU inference via WebGL |
-| Feature Extractor   | MobileNet v3                  | Free, pretrained, ~9.5MB             |
-| 7th Signal          | Hugging Face Inference API    | Real fine-tuned AI detector model    |
-| Fallback Backend    | Cloudflare Workers AI         | When WebGL unavailable (free 10k/day)|
-| Model Caching       | Service Worker + Workbox      | MobileNet cached after first load    |
-
-### UI & Animation
-| Layer        | Technology          | Why                                    |
-|--------------|---------------------|----------------------------------------|
-| Styling      | Tailwind CSS        | Utility-first, fast to build           |
-| Fonts        | Google Fonts        | Syne + DM Sans + JetBrains Mono, free  |
-| Animation    | Framer Motion       | Spring physics, staggered reveals      |
-
-### Observability
-| Layer        | Technology              | Free Limit              |
-|--------------|-------------------------|-------------------------|
-| Error tracking | Sentry Free Tier      | 5,000 errors/month      |
-| Analytics    | Vercel Analytics        | Included in Hobby plan  |
-| Perf monitor | Cloudflare Web Analytics| Unlimited, privacy-safe |
-
----
-
-## 📦 NPM Packages
+### Option A — Submit by URL (JSON)
 
 ```bash
-# Core
-npm create vite@latest ai-image-detector -- --template react
-npm install react react-dom
+curl -X POST https://api.thehive.ai/api/v3/ai-generated-image-detection \
+  -H "Authorization: Token <YOUR_API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/image.jpg"}'
+```
 
-# ML
-npm install @tensorflow/tfjs @tensorflow-models/mobilenet
+### Option B — Upload a Local File (multipart)
 
-# Animation
-npm install framer-motion
-
-# Service Worker / Caching
-npm install workbox-window workbox-precaching workbox-routing workbox-strategies
-
-# Error Tracking
-npm install @sentry/react
-
-# Styling
-npm install -D tailwindcss postcss autoprefixer
-npx tailwindcss init -p
+```bash
+curl -X POST https://api.thehive.ai/api/v3/ai-generated-image-detection \
+  -H "Authorization: Token <YOUR_API_KEY>" \
+  -F "image=@/path/to/image.jpg"
 ```
 
 ---
 
-## 🆓 Free Tier Limits & Ceilings
+## Step 4: Response Structure
 
-| Service              | Free Limit                  | Enough for 1000 users/day? |
-|----------------------|-----------------------------|---------------------------|
-| Vercel Hobby         | 100GB bandwidth/month       | ✅ Yes                    |
-| Cloudflare Free      | Unlimited requests          | ✅ Yes                    |
-| Cloudflare Workers AI| 10,000 req/day              | ✅ Yes (fallback only)    |
-| Hugging Face API     | ~1,000 req/day              | ⚠️ May throttle at peak   |
-| Sentry Free          | 5,000 errors/month          | ✅ Yes                    |
-| Vercel Analytics     | Included                    | ✅ Yes                    |
-| Service Worker Cache | Browser storage (~50MB)     | ✅ Yes (per user device)  |
+```json
+{
+  "status": {
+    "code": 200,
+    "message": "SUCCESS"
+  },
+  "on": {
+    "id": "task_abc123",
+    "url": "https://example.com/image.jpg"
+  },
+  "output": [
+    {
+      "time": 0.482,
+      "classes": [
+        {
+          "class": "ai_generated",
+          "score": 0.9872
+        },
+        {
+          "class": "not_ai_generated",
+          "score": 0.0128
+        },
+        {
+          "class": "dalle",
+          "score": 0.8741
+        },
+        {
+          "class": "midjourney",
+          "score": 0.0512
+        },
+        {
+          "class": "none",
+          "score": 0.0747
+        },
+        {
+          "class": "deepfake",
+          "score": 0.02
+        }
+      ]
+    }
+  ]
+}
+```
 
----
+### Response Fields
 
-## 📐 ML Signal Ensemble
+| Field | Description |
+|---|---|
+| `classes[].class` | Label — see classes list below |
+| `classes[].score` | Confidence score (0–1). Scores within each head sum to 1 |
+| `on.id` | Task ID — use this to report false positives back to Hive |
 
-| Signal | File                    | Weight | Method                          |
-|--------|-------------------------|--------|---------------------------------|
-| 1      | mobilenetFeatures.js    | 22%    | Embedding norm, sparsity, kurtosis |
-| 2      | frequencyAnalysis.js    | 20%    | FFT periodic artifact detection |
-| 3      | colorStats.js           | 12%    | Color variance + histogram entropy |
-| 4      | edgeAnalysis.js         | 12%    | Sobel edge uniformity           |
-| 5      | textureAnalysis.js      | 8%     | LBP texture regularity          |
-| 6      | noiseAnalysis.js        | 8%     | PRNU noise autocorrelation      |
-| 7 🆕   | huggingFaceSignal.js    | 18%    | Fine-tuned AI detector model    |
+### Key Classes
 
-Weights adjusted to give the fine-tuned HF model significant influence (18%)
-while keeping all in-browser signals active.
+**Head 1 — Generation (binary):**
+- `ai_generated` — image is AI-generated
+- `not_ai_generated` — image is real/human-made
 
----
+**Head 2 — Source (generator):**
+- `dalle`, `midjourney`, `stablediffusion`, `stablediffusionxl`, `flux`, `flux2`, `imagen`, `adobefirefly`, `gan`, `4o`, `grok`, `ideogram`, `leonardo`, `kandinsky`, `sora`, `runway`, `pika`, `kling`, `luma`, `heygen`, `gptimage1_5`, `hidream`, `wan`, `veo3`, `imagen4`, `gemini`, and many more
+- `other_image_generators` — AI-generated but source unknown
+- `inconclusive` — cannot identify source
+- `none` — not AI-generated
 
-## 🔒 Error Handling Strategy
-
-| Scenario                        | Behavior                                         |
-|---------------------------------|--------------------------------------------------|
-| WebGL not available             | Auto-fallback to Cloudflare Workers AI           |
-| Hugging Face API throttled      | Skip signal, redistribute weights to remaining 6 |
-| MobileNet load fails            | Show retry button, continue with 5 signals       |
-| Individual signal throws        | Catch error, assign neutral score 50, confidence 0 |
-| Non-image file uploaded         | Inline error in DropZone, no crash               |
-| Image smaller than 64×64px      | Skip texture + noise signals, show warning       |
-| Sentry initialization fails     | Silent fail, app continues normally              |
-
----
-
-## 🚀 Performance Targets
-
-| Metric                        | Target   | How Achieved                              |
-|-------------------------------|----------|-------------------------------------------|
-| Cold start (first ever visit) | < 8s     | Vite code splitting + Vercel CDN          |
-| Warm start (model cached)     | < 500ms  | Service Worker serves MobileNet from cache|
-| Time to analysis (warm)       | < 1.5s   | WebGL GPU inference + Promise.all         |
-| Time to analysis (cold)       | < 4s     | Model preloaded on app mount              |
-| Peak GPU memory               | < 200MB  | tf.tidy + manual tensor disposal          |
-| JS bundle (gzipped)           | < 150KB  | Vite tree-shaking, TF.js excluded         |
-| HF API response               | < 2s     | Called in parallel with local signals     |
-
----
-
-## 📋 Build Phases (Ordered)
-
-### Phase 1 — Project Scaffold
-- [ ] T01: Vite + React setup
-- [ ] T02: Install all dependencies
-- [ ] T03: Configure Tailwind
-- [ ] T04: Add Google Fonts
-- [ ] T05: CSS design tokens (from UI_SPEC.md)
-- [ ] T06: Create folder structure
-
-### Phase 2 — Utilities
-- [ ] T07: `constants.js` (weights, verdicts, signal metadata)
-- [ ] T08: `imageUtils.js` (canvas preprocessing, 224×224 + 64×64)
-
-### Phase 3 — ML Modules
-- [ ] T09: `mobilenetFeatures.js`
-- [ ] T10: `frequencyAnalysis.js`
-- [ ] T11: `colorStats.js`
-- [ ] T12: `edgeAnalysis.js`
-- [ ] T13: `textureAnalysis.js`
-- [ ] T14: `noiseAnalysis.js`
-- [ ] T15: `huggingFaceSignal.js` 🆕 (7th signal via HF API)
-- [ ] T16: `scorer.js` (confidence-weighted ensemble, 7 signals)
-- [ ] T17: `detector.js` (Promise.all orchestrator)
-
-### Phase 4 — Resilience Layer
-- [ ] T18: Cloudflare Workers AI fallback (when WebGL fails)
-- [ ] T19: Service Worker setup with Workbox (model caching)
-- [ ] T20: Sentry initialization in `main.jsx`
-
-### Phase 5 — Components
-- [ ] T21: `DropZone.jsx`
-- [ ] T22: `LoadingState.jsx`
-- [ ] T23: `ScoreGauge.jsx`
-- [ ] T24: `ResultBanner.jsx`
-- [ ] T25: `DimensionCard.jsx`
-
-### Phase 6 — App Assembly
-- [ ] T26: `App.jsx` (full state machine + flow)
-- [ ] T27: Per-signal progress callbacks
-- [ ] T28: Error boundary
-
-### Phase 7 — Polish & Deploy
-- [ ] T29: Header + ModelStatus badge
-- [ ] T30: Responsive layout (mobile + desktop)
-- [ ] T31: Tensor memory audit (Chrome DevTools)
-- [ ] T32: Deploy to Vercel
-- [ ] T33: Point domain through Cloudflare
-- [ ] T34: Verify Sentry receiving events
-- [ ] T35: Verify Vercel Analytics active
+**Head 3 — Deepfake:**
+- `deepfake` — score 0–1 (highest face score across all detected faces)
 
 ---
 
-## 🏁 Final Ratings (Free Stack)
+## Step 5: Recommended Thresholds
 
-| Layer                        | Rating   |
-|------------------------------|----------|
-| Framework (React + Vite)     | ✅ 10/10 |
-| ML Runtime (TF.js + WebGL)   | ✅ 9/10  |
-| Detection Accuracy (7 signals)| ✅ 8/10 |
-| Reliability + Fallbacks      | ✅ 9/10  |
-| Hosting + CDN (Vercel+CF)    | ✅ 10/10 |
-| Model Caching (Service Worker)| ✅ 10/10|
-| Error Tracking (Sentry)      | ✅ 9/10  |
-| Analytics (Vercel)           | ✅ 9/10  |
-| **Overall**                  | **🔥 9.2/10** |
+| Detection Type | Threshold | Notes |
+|---|---|---|
+| AI-Generated Image | **≥ 0.9** | Flag/reject above this |
+| AI-Generated Video | **≥ 0.9** on any frame | Per-frame check |
+| Deepfake Image | **≥ 0.9** | Based on highest face score |
+| Deepfake Video | **≥ 0.5** on 2 consecutive frames OR 5% of all frames | |
+
+> Start with these defaults, then tune based on your false positive rate.
 
 ---
 
-## 💰 Paid Upgrade Path (Future)
+## Step 6: Python Integration
 
-If you ever want to go beyond free limits:
+```python
+import os
+import requests
 
-| Upgrade                        | Cost/month | Gain                                  |
-|-------------------------------|------------|---------------------------------------|
-| Hugging Face Inference Pro     | $9         | No rate limits on API                 |
-| Vercel Pro                     | $20        | More bandwidth, team features         |
-| Sentry Team                    | $26        | 50k errors/month, better alerts       |
-| Cloudflare Workers Paid        | $5         | 10M req/day (from 10k)                |
-| Self-hosted HF Space (GPU)     | Free!      | Your own fine-tuned model, no limits  |
+HIVE_API_KEY = os.environ.get("HIVE_API_KEY")
+ENDPOINT = "https://api.thehive.ai/api/v3/ai-generated-image-detection"
 
-Total paid cost for true production scale: ~$60/month max.
+THRESHOLD_AI_GENERATED = 0.9
+THRESHOLD_DEEPFAKE = 0.9
+
+
+def detect_by_url(image_url: str) -> dict:
+    headers = {"Authorization": f"Token {HIVE_API_KEY}"}
+    payload = {"url": image_url}
+    response = requests.post(ENDPOINT, headers=headers, json=payload)
+    response.raise_for_status()
+    return response.json()
+
+
+def detect_by_file(file_path: str) -> dict:
+    headers = {"Authorization": f"Token {HIVE_API_KEY}"}
+    with open(file_path, "rb") as f:
+        files = {"image": f}
+        response = requests.post(ENDPOINT, headers=headers, files=files)
+    response.raise_for_status()
+    return response.json()
+
+
+def parse_result(api_response: dict) -> dict:
+    """
+    Returns a clean summary dict from the raw Hive API response.
+    """
+    classes = api_response["output"][0]["classes"]
+    scores = {c["class"]: c["score"] for c in classes}
+
+    ai_score = scores.get("ai_generated", 0)
+    deepfake_score = scores.get("deepfake", 0)
+
+    # Find top source generator (exclude meta-classes)
+    excluded = {"ai_generated", "not_ai_generated", "deepfake", "none", "inconclusive", "other_image_generators"}
+    source_scores = {k: v for k, v in scores.items() if k not in excluded}
+    top_source = max(source_scores, key=source_scores.get) if source_scores else "unknown"
+    top_source_score = source_scores.get(top_source, 0)
+
+    return {
+        "is_ai_generated": ai_score >= THRESHOLD_AI_GENERATED,
+        "ai_generated_score": round(ai_score, 4),
+        "is_deepfake": deepfake_score >= THRESHOLD_DEEPFAKE,
+        "deepfake_score": round(deepfake_score, 4),
+        "likely_source": top_source if ai_score >= THRESHOLD_AI_GENERATED else None,
+        "source_confidence": round(top_source_score, 4) if ai_score >= THRESHOLD_AI_GENERATED else None,
+        "raw_scores": scores,
+    }
+
+
+# --- Usage ---
+
+if __name__ == "__main__":
+    # By URL
+    result = detect_by_url("https://example.com/test-image.jpg")
+    summary = parse_result(result)
+    print(summary)
+
+    # By file
+    result = detect_by_file("./local_image.png")
+    summary = parse_result(result)
+    print(summary)
+```
+
+---
+
+## Step 7: TypeScript / Node.js Integration
+
+```typescript
+import FormData from "form-data";
+import fs from "fs";
+import fetch from "node-fetch";
+
+const HIVE_API_KEY = process.env.HIVE_API_KEY!;
+const ENDPOINT = "https://api.thehive.ai/api/v3/ai-generated-image-detection";
+const THRESHOLD = 0.9;
+
+interface HiveClass {
+  class: string;
+  score: number;
+}
+
+interface DetectionSummary {
+  isAiGenerated: boolean;
+  aiScore: number;
+  isDeepfake: boolean;
+  deepfakeScore: number;
+  likelySource: string | null;
+  sourceConfidence: number | null;
+}
+
+async function detectByUrl(imageUrl: string): Promise<DetectionSummary> {
+  const res = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Token ${HIVE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ url: imageUrl }),
+  });
+
+  if (!res.ok) throw new Error(`Hive API error: ${res.status}`);
+  const data = await res.json();
+  return parseResult(data);
+}
+
+async function detectByFile(filePath: string): Promise<DetectionSummary> {
+  const form = new FormData();
+  form.append("image", fs.createReadStream(filePath));
+
+  const res = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Token ${HIVE_API_KEY}`,
+      ...form.getHeaders(),
+    },
+    body: form,
+  });
+
+  if (!res.ok) throw new Error(`Hive API error: ${res.status}`);
+  const data = await res.json();
+  return parseResult(data);
+}
+
+function parseResult(data: any): DetectionSummary {
+  const classes: HiveClass[] = data.output[0].classes;
+  const scores = Object.fromEntries(classes.map((c) => [c.class, c.score]));
+
+  const aiScore = scores["ai_generated"] ?? 0;
+  const deepfakeScore = scores["deepfake"] ?? 0;
+
+  const excluded = new Set(["ai_generated", "not_ai_generated", "deepfake", "none", "inconclusive", "other_image_generators"]);
+  const sourceCandidates = classes.filter((c) => !excluded.has(c.class));
+  const topSource = sourceCandidates.sort((a, b) => b.score - a.score)[0];
+
+  return {
+    isAiGenerated: aiScore >= THRESHOLD,
+    aiScore,
+    isDeepfake: deepfakeScore >= THRESHOLD,
+    deepfakeScore,
+    likelySource: aiScore >= THRESHOLD ? topSource?.class ?? null : null,
+    sourceConfidence: aiScore >= THRESHOLD ? topSource?.score ?? null : null,
+  };
+}
+```
+
+---
+
+## Step 8: Error Handling & Edge Cases
+
+```python
+import time
+
+def detect_with_retry(image_url: str, retries: int = 3) -> dict:
+    for attempt in range(retries):
+        try:
+            response = requests.post(
+                ENDPOINT,
+                headers={"Authorization": f"Token {HIVE_API_KEY}"},
+                json={"url": image_url},
+                timeout=15,
+            )
+            if response.status_code == 429:
+                # Rate limited — you've hit 100 req/day on V3 free tier
+                raise Exception("Hive V3 daily limit reached (100 req/day). Upgrade to Enterprise.")
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.Timeout:
+            if attempt < retries - 1:
+                time.sleep(2 ** attempt)
+            else:
+                raise
+```
+
+### Common Error Codes
+
+| Code | Meaning | Action |
+|---|---|---|
+| `401` | Invalid or missing API key | Check `Authorization: Token <key>` header |
+| `429` | Rate limit hit (100/day on V3 free) | Back off or upgrade to Enterprise |
+| `400` | Bad request (unsupported format, bad URL) | Check file type and URL accessibility |
+| `500` | Hive server error | Retry with exponential backoff |
+
+---
+
+## Step 9: Rate Limit Strategy (Free Tier)
+
+The V3 free tier gives **100 requests/day**. To stay within limits:
+
+1. **Cache results by image hash** — don't re-scan the same image twice
+2. **Pre-filter by file type** before hitting the API
+3. **Queue requests** with a token bucket (max 100/day = ~4/hour sustained)
+4. Track usage in Redis or a simple SQLite table with a daily reset
+
+```python
+import hashlib
+
+_cache: dict[str, dict] = {}  # replace with Redis in production
+
+def get_image_hash(file_path: str) -> str:
+    with open(file_path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+def detect_cached(file_path: str) -> dict:
+    h = get_image_hash(file_path)
+    if h in _cache:
+        return _cache[h]
+    result = detect_by_file(file_path)
+    _cache[h] = parse_result(result)
+    return _cache[h]
+```
+
+---
+
+## Step 10: FastAPI Wrapper (optional)
+
+If you're building this as a service endpoint:
+
+```python
+from fastapi import FastAPI, UploadFile, File, HTTPException
+import tempfile, os
+
+app = FastAPI()
+
+@app.post("/detect")
+async def detect_image(file: UploadFile = File(...)):
+    allowed = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+    if file.content_type not in allowed:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    try:
+        raw = detect_by_file(tmp_path)
+        return parse_result(raw)
+    finally:
+        os.unlink(tmp_path)
+```
+
+---
+
+## Quick Reference
+
+| Item | Value |
+|---|---|
+| Endpoint | `POST https://api.thehive.ai/api/v3/ai-generated-image-detection` |
+| Auth header | `Authorization: Token <API_KEY>` |
+| Free quota | 100 requests/day |
+| Recommended threshold | `ai_generated >= 0.9` |
+| Deepfake threshold | `deepfake >= 0.9` (image), `>= 0.5` on 2 consecutive frames (video) |
+| Avg latency | ~500ms (thumbnail), up to 10s (30s video segment) |
+| Docs | https://docs.thehive.ai/docs/ai-image-and-video-detection |
+| Sign up | https://portal.thehive.ai/signup |

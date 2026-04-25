@@ -314,7 +314,7 @@ export default function App() {
                   <div style={{ display: 'flex', justifyContent: 'center' }}>
                     <ScoreGauge score={result.finalScore} color={scoreColor} />
                   </div>
-                  <ResultBanner verdict={result.verdict} />
+                  <ResultBanner verdict={result.verdict} generatorLabel={result.generatorLabel} deepfakeScore={result.deepfakeScore} />
                 </div>
               </div>
 

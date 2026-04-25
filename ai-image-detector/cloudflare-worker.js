@@ -1,85 +1,28 @@
 /**
- * Cloudflare Worker — AIGC·DETECT Proxy
- *
- * Routes:
- *   POST /hive  → Proxy to Hive V3 AI image detection API
- *                 (HIVE_API_KEY stored as CF Worker secret, never in browser)
- *   POST /       → Cloudflare AI fallback (WebGL not available)
- *
- * CORS: allows all origins so the browser can call this worker directly.
+ * Cloudflare Worker — AIGC·DETECT Fallback
+ * Used when the user's browser doesn't support WebGL.
+ * Routes: POST / → Cloudflare AI (resnet-50 fallback)
  */
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type',
 };
-
-const HIVE_ENDPOINT = 'https://api.thehive.ai/api/v3/ai-generated-image-detection';
 
 export default {
   async fetch(request, env) {
-    // Handle CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
-
     if (request.method !== 'POST') {
       return new Response('Method not allowed', { status: 405, headers: CORS_HEADERS });
     }
 
-    const url = new URL(request.url);
-
-    // ── Route: /hive — Proxy to Hive V3 API ──────────────────────
-    if (url.pathname === '/hive') {
-      const hiveKey = env.HIVE_API_KEY;
-      if (!hiveKey) {
-        return Response.json(
-          { error: 'HIVE_API_KEY not configured in Worker secrets' },
-          { status: 500, headers: CORS_HEADERS }
-        );
-      }
-
-      try {
-        // Forward the multipart form body as-is to Hive
-        const hiveRes = await fetch(HIVE_ENDPOINT, {
-          method:  'POST',
-          headers: { 'Authorization': `Token ${hiveKey}` },
-          body:    request.body,
-        });
-
-        // Read body as text first — Hive sometimes returns non-JSON errors
-        const rawText = await hiveRes.text();
-        let data;
-        try {
-          data = JSON.parse(rawText);
-        } catch {
-          // Hive returned non-JSON — surface it for debugging
-          return Response.json(
-            { error: `Hive API error (HTTP ${hiveRes.status})`, rawResponse: rawText.slice(0, 500) },
-            { status: hiveRes.status, headers: CORS_HEADERS }
-          );
-        }
-
-        return Response.json(data, {
-          status:  hiveRes.status,
-          headers: CORS_HEADERS,
-        });
-
-      } catch (err) {
-        return Response.json(
-          { error: 'Hive proxy error', detail: err?.message },
-          { status: 502, headers: CORS_HEADERS }
-        );
-      }
-    }
-
-    // ── Route: / — Cloudflare AI fallback (WebGL unavailable) ────
     try {
       const imageData = await request.arrayBuffer();
-
       if (!imageData || imageData.byteLength === 0) {
-        return Response.json({ error: 'No image data received' }, { status: 400, headers: CORS_HEADERS });
+        return Response.json({ error: 'No image data' }, { status: 400, headers: CORS_HEADERS });
       }
       if (imageData.byteLength > 4 * 1024 * 1024) {
         return Response.json({ error: 'Image too large (max 4MB)' }, { status: 413, headers: CORS_HEADERS });

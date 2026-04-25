@@ -22,7 +22,7 @@ export default function DropZone({ onFile, disabled }) {
     const { accepted } = isAcceptedFile({ type: mimeToCheck, name: file.name });
 
     if (!accepted) {
-      setError(`Unsupported: ${mimeToCheck || 'unknown type'}. Supported: JPG, PNG, WebP, GIF, AVIF, HEIC, TIFF, BMP, SVG.`);
+      setError(`Unsupported format: ${mimeToCheck || 'unknown'}. Accepted: JPG, PNG, WebP, GIF, BMP`);
       return;
     }
     setError(null);
@@ -102,7 +102,7 @@ export default function DropZone({ onFile, disabled }) {
             {isActive ? 'Release to analyze' : 'Drop an image to analyze'}
           </p>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--text-secondary)', marginTop: '6px' }}>
-            JPG · PNG · WebP · GIF · HEIC · TIFF · BMP · SVG · AVIF
+            JPG · PNG · WebP · GIF · BMP
           </p>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
             Ctrl+V to paste from clipboard

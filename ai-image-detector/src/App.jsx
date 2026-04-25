@@ -201,7 +201,7 @@ export default function App() {
 
               <DropZone onFile={handleFile} disabled={!modelReady} />
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', marginTop: '28px' }}>
-                {['⚡ Instant Results', '🎯 High Accuracy', '📷 HEIC · TIFF · BMP · PNG · JPG', '🔒 Secure'].map(pill => (
+                {['⚡ Instant Results', '🎯 High Accuracy', '📷 JPG · PNG · WebP · GIF · BMP', '🔒 Secure'].map(pill => (
                   <span key={pill} style={{
                     fontFamily:    'var(--font-mono)',
                     fontSize:      '11px',
